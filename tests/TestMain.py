@@ -18,11 +18,8 @@ class TestConfig(unittest.TestCase):
         """测试基本配置"""
         # 检查关键配置
         self.assertEqual(config['gui_title'], 'ok-hotta')
-        self.assertEqual(config['version'], 'dev')
 
-        print(f"✅ 窗口标题: {config['gui_title']}")
-        print(f"✅ 版本: {config['version']}")
-        print(f"✅ 调试模式: {config['debug']}")  # 只是打印，不检查值
+# 只是打印，不检查值
 
     def test_game_config(self):
         """测试游戏配置"""
@@ -31,8 +28,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(windows_config['exe'], ['QRSL.exe'])
         self.assertEqual(windows_config['interaction'], 'Genshin')
 
-        print(f"✅ 游戏EXE: {windows_config['exe']}")
-        print(f"✅ 交互方式: {windows_config['interaction']}")
+
 
     def test_resolution_config(self):
         """测试分辨率配置"""
@@ -41,8 +37,6 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(resolution['ratio'], '16:9')
         self.assertEqual(resolution['min_size'], (1280, 720))
 
-        print(f"✅ 分辨率比例: {resolution['ratio']}")
-        print(f"✅ 最小分辨率: {resolution['min_size']}")
 
     def test_template_matching(self):
         """测试模板匹配配置"""

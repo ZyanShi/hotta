@@ -13,10 +13,10 @@ jobs:
 
     # 添加权限设置
     permissions:
-      contents: write  # 允许写入内容（创建 Release）
-      actions: read    # 允许读取 Actions
-      checks: read     # 允许读取检查
-
+      contents: write  
+      actions: read    
+      checks: read     
+      
     strategy:
       matrix:
         python-version: [ 3.12 ]
@@ -63,7 +63,6 @@ jobs:
               python -m unittest $_.FullName
           }
 
-      # 删除或注释掉同步步骤
       # - name: Sync Repositories
       #   id: sync
       #   uses: ok-oldking/partial-sync-repo@master

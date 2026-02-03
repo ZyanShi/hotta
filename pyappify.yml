@@ -2,6 +2,7 @@ name: "ok-hotta"
 uac: true
 profiles:
   - name: "Release"
+    git_url: ""
     admin: true
     main_script: "main.py"
     requires_python: "3.12"

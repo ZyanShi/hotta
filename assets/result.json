@@ -59,6 +59,12 @@
             "height": 1080,
             "id": 9,
             "file_name": "images/9.png"
+        },
+        {
+            "width": 1920,
+            "height": 1080,
+            "id": 10,
+            "file_name": "images/10.png"
         }
     ],
     "categories": [
@@ -100,14 +106,22 @@
         },
         {
             "id": 9,
-            "name": "mainpage"
+            "name": "fishing bait"
         },
         {
             "id": 10,
-            "name": "opened chest"
+            "name": "fishing rod"
         },
         {
             "id": 11,
+            "name": "mainpage"
+        },
+        {
+            "id": 12,
+            "name": "opened chest"
+        },
+        {
+            "id": 13,
             "name": "unopened chest"
         }
     ],
@@ -160,7 +174,7 @@
         {
             "id": 3,
             "image_id": 2,
-            "category_id": 11,
+            "category_id": 13,
             "segmentation": [],
             "bbox": [
                 1701.3424298415246,
@@ -190,7 +204,7 @@
         {
             "id": 5,
             "image_id": 4,
-            "category_id": 10,
+            "category_id": 12,
             "segmentation": [],
             "bbox": [
                 1701.102272262532,
@@ -276,6 +290,36 @@
             "ignore": 0,
             "iscrowd": 0,
             "area": 15394.52034039544
+        },
+        {
+            "id": 11,
+            "image_id": 10,
+            "category_id": 10,
+            "segmentation": [],
+            "bbox": [
+                1838.0629584591331,
+                210.6472974827112,
+                62.40553745263669,
+                18.102369642749633
+            ],
+            "ignore": 0,
+            "iscrowd": 0,
+            "area": 1129.6881067220856
+        },
+        {
+            "id": 12,
+            "image_id": 10,
+            "category_id": 9,
+            "segmentation": [],
+            "bbox": [
+                1838.7912802071112,
+                318.88563271372675,
+                61.040991367502556,
+                17.47869796866812
+            ],
+            "ignore": 0,
+            "iscrowd": 0,
+            "area": 1066.9170518206552
         }
     ],
     "info": {
@@ -284,6 +328,6 @@
         "description": "",
         "contributor": "Label Studio",
         "url": "",
-        "date_created": "2026-02-03 12:11:05.841712"
+        "date_created": "2026-02-05 17:35:28.420302"
     }
 }

@@ -105,6 +105,7 @@ config = {
     'onetime_tasks': [  # 用户点击触发的任务
         ["src.tasks.LianHeZuoZhanTask", "LianHeZuoZhanTask"],  # 联合作战任务
         ["src.tasks.FishingTask", "FishingTask"],
+        ["src.tasks.TaoFaZuoZhanTask", "TaoFaZuoZhanTask"],    # 讨伐作战任务
         # ["src.tasks.MyOneTimeWithAGroup", "MyOneTimeWithAGroup"],
         # ["src.tasks.MyOneTimeWithAGroup2", "MyOneTimeWithAGroup2"],
         ["ok", "DiagnosisTask"],

@@ -10,8 +10,10 @@ class BaseQRSLTask(BaseTask):
     AUTO_COMBAT_COORDS = (1160, 930)
     EXIT_CHECK_COORDS = (267, 65)
     MAIN_PAGE_COORDS = (22, 63)
+    TARGET_CHECK_COORDS = (863, 1028)  # 新增：目标检查坐标
     REF_RESOLUTION = (1920, 1080)
     TARGET_COLOR_BGR = (237, 166, 62)
+    TARGET_CHECK_COLOR = (236, 236, 236)  # #ECECEC 的 BGR 格式
 
     def _get_scaled_coordinates(self, ref_x, ref_y):
         """根据参考分辨率计算当前分辨率下的坐标"""
@@ -52,53 +54,125 @@ class BaseQRSLTask(BaseTask):
 
     def _color_similar(self, color1, color2, tolerance=30):
         """判断颜色是否相似"""
-        return sum(abs(int(color1[i]) - color2[i]) for i in range(3)) < tolerance
+        return sum(abs(int(color1[i]) - int(color2[i])) for i in range(3)) < tolerance
+
+    def check_exit_button_color(self):
+        """检查退出按钮坐标是否为白色"""
+        frame = self.frame
+        if frame is None:
+            return False
+
+        check_x, check_y = self._get_scaled_coordinates(*self.EXIT_CHECK_COORDS)
+
+        # 确保坐标在图像范围内
+        height, width = frame.shape[:2]
+        if check_y >= height or check_x >= width:
+            return False
+
+        pixel_color = frame[check_y, check_x]
+
+        # 判断是否为白色
+        return self._is_white_color(pixel_color)
+
+    def check_target_color(self):
+        """检查目标坐标是否为指定颜色"""
+        frame = self.frame
+        if frame is None:
+            return False
+
+        target_x, target_y = self._get_scaled_coordinates(*self.TARGET_CHECK_COORDS)
+
+        # 确保坐标在图像范围内
+        height, width = frame.shape[:2]
+        if target_y >= height or target_x >= width:
+            return False
+
+        pixel_color = frame[target_y, target_x]
+
+        # 判断颜色是否相似
+        return self._color_similar(pixel_color, self.TARGET_CHECK_COLOR, tolerance=10)
+
+    def wait_for_exit_button_white(self, timeout=60):
+        """等待退出按钮变为白色"""
+        self.log_info(f"等待进入副本（退出按钮变白），超时{timeout}秒...")
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            if self.check_exit_button_color():
+                self.log_info("成功进入副本")
+                return True
+            self.sleep(0.5)
+
+        self.log_error("等待进入副本超时")
+        return False
+
+    def wait_for_target_color(self, timeout):
+        """等待目标颜色出现"""
+        self.log_info(f"等待目标颜色出现，超时{timeout}秒...")
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            if self.check_target_color():
+                self.log_info("检测到目标颜色")
+                return True
+            self.sleep(0.5)
+
+        self.log_error("等待目标颜色超时")
+        return False
 
     def enter_team(self, alt_down_delay=0.8, click_delay=1.5, alt_key='alt'):
         """使用Alt+点击进入队伍"""
         target_x, target_y = self._get_scaled_coordinates(*self.ENTER_TEAM_COORDS)
-        success = self._click_with_alt(target_x, target_y, alt_down_delay, click_delay, alt_key)
 
-        if success:
-            self.sleep(0.5)
-        return success
+        for attempt in range(10):
+            success = self._click_with_alt(target_x, target_y, alt_down_delay, click_delay, alt_key)
+            if not success:
+                continue
+            # 等待界面响应
+            self.sleep(1)
+
+            # 查找"参加"按钮
+            attend_box = self.find_one('attend', threshold=0.75)
+            if attend_box:
+                self.sleep(0.5)
+                return True, attend_box
+            else:
+                self.sleep(1)  # 等待一下再重试
+
+        self.log_error("进入队伍失败")
+        return False, None
 
     def start_auto_combat(self, alt_down_delay=0.8, click_delay=1.5, alt_key='alt'):
         """开启自动战斗"""
         target_x, target_y = self._get_scaled_coordinates(*self.AUTO_COMBAT_COORDS)
         success = self._click_with_alt(target_x, target_y, alt_down_delay, click_delay, alt_key)
 
-        if success:
-            self.sleep(5)
         return success
 
     def enter_dungeon(self):
         """进入副本流程"""
-        start_time = time.time()
+        self.log_info("开始进入副本流程...")
 
-        while time.time() - start_time < 10:
-            self.enter_team(alt_down_delay=0.8, click_delay=1.5)
-            attend_box = self.find_one('attend', threshold=0.75)
-            if attend_box:
-                self.click_box(attend_box, after_sleep=1.5)
-                break
-            self.sleep(0.5)
-
-        if not attend_box:
+        # 进入队伍并找到"参加"按钮
+        success, attend_box = self.enter_team(alt_down_delay=0.8, click_delay=1.5)
+        if not success or not attend_box:
+            self.log_error("进入队伍失败，无法继续进入副本")
             return False
 
+        # 点击"参加"按钮
+        self.log_info("点击'参加'按钮")
+        self.click_box(attend_box, after_sleep=1.5)
+
+        # 等待"进入"按钮出现
         enter_box = self.wait_feature('enter', time_out=10, threshold=0.75, raise_if_not_found=False)
         if not enter_box:
+            self.log_error("未找到'进入'按钮")
             return False
 
         self.click_box(enter_box, after_sleep=0.5)
 
-        chest_box = self.wait_feature('unopened chest', time_out=60, threshold=0.7, raise_if_not_found=False)
-        if not chest_box:
-            return False
-
-        self.sleep(2)
-        return True
+        # 使用通用的等待退出按钮变白的方法
+        return self.wait_for_exit_button_white(timeout=60)
 
     def exit_dungeon(self):
         """退出副本"""

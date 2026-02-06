@@ -10,9 +10,10 @@ class LianHeZuoZhanTask(BaseQRSLTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "联合作战"
-        self.description = "刷砂"
-        self.group_icon = FluentIcon.SYNC
-        self.icon = FluentIcon.FOLDER
+        self.description = "矿砂"
+        self.group_name = "精炼强化"
+        self.group_icon = FluentIcon.VPN
+        self.icon = FluentIcon.SYNC
 
         self.default_config.update({
             '循环次数': 10000,

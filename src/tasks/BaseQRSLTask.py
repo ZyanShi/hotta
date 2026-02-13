@@ -164,7 +164,7 @@ class BaseQRSLTask(BaseTask):
         self.click_box(attend_box, after_sleep=1.5)
 
         # 等待"进入"按钮出现
-        enter_box = self.wait_feature('enter', time_out=10, threshold=0.75, raise_if_not_found=False)
+        enter_box = self.wait_feature('enter', time_out=10, threshold=0.75)
         if not enter_box:
             self.log_error("未找到'进入'按钮")
             return False
@@ -189,7 +189,7 @@ class BaseQRSLTask(BaseTask):
         if not self._click_with_alt(check_x, check_y, alt_down_delay=0.8, click_delay=1.5):
             return False
 
-        confirm_box = self.wait_feature('confirm', time_out=10, threshold=0.7, raise_if_not_found=False)
+        confirm_box = self.wait_feature('confirm', time_out=10, threshold=0.7)
         if confirm_box:
             confirm_center = confirm_box.center()
             if self._click_with_alt(confirm_center[0], confirm_center[1], alt_down_delay=0.8, click_delay=1.5):
@@ -199,36 +199,53 @@ class BaseQRSLTask(BaseTask):
         return False
 
     def is_main_page(self):
-        """判断是否在游戏主页面"""
         max_attempts = 30
         attempts = 0
 
         while attempts < max_attempts:
+            attempts += 1  # 每次循环开始增加一次计数
+
+            # 1. 获取当前屏幕
             frame = self.frame
             if frame is None:
                 self.sleep(1)
-                attempts += 1
                 continue
 
             height, width = frame.shape[:2]
+
+            # 2. 主页颜色检测
             current_x, current_y = self._get_scaled_coordinates(*self.MAIN_PAGE_COORDS)
             pixel_color = frame[current_y, current_x]
 
+            # 修正：只进行颜色相似度检查，不需要检查pixel_color是否为真
             if self._color_similar(pixel_color, self.TARGET_COLOR_BGR):
-                self.sleep(3)
+                self.sleep(2)  # 等待2秒确认
                 return True
 
+            # 3. 查找返回按钮
             back_box = self.find_one('back', threshold=0.75)
             if back_box:
                 self.click_box(back_box, after_sleep=0.5)
+                self.sleep(2)  # 等待2秒
+                self.next_frame()  # 刷新画面
+                continue  # 继续下一次循环
 
+            # 4. 检查副本状态
             check_x, check_y = self._get_scaled_coordinates(*self.EXIT_CHECK_COORDS)
             pixel_color = frame[check_y, check_x]
 
             if self._is_white_color(pixel_color):
                 self.exit_dungeon()
-            self.next_frame()
-            attempts += 1
+                self.sleep(10)  # 等待10秒
+                self.next_frame()  # 刷新画面
+                continue  # 继续下一次循环
+
+            # 5. 不在副本中，执行返回操作
+            self.back(after_sleep=2)
+            self.sleep(2)  # 等待2秒
+            self.next_frame()  # 刷新画面
+
+            # 继续循环（下一次循环开始时会自动增加attempts）
 
         return False
 

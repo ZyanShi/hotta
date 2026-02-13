@@ -106,6 +106,7 @@ config = {
         ["src.tasks.LianHeZuoZhanTask", "LianHeZuoZhanTask"],  # 联合作战任务
         ["src.tasks.FishingTask", "FishingTask"],
         ["src.tasks.TaoFaZuoZhanTask", "TaoFaZuoZhanTask"],    # 讨伐作战任务
+        ["src.tasks.MoKuaiJinBiTask", "MoKuaiJinBiTask"],
         # ["src.tasks.MyOneTimeWithAGroup", "MyOneTimeWithAGroup"],
         # ["src.tasks.MyOneTimeWithAGroup2", "MyOneTimeWithAGroup2"],
         ["ok", "DiagnosisTask"],

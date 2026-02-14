@@ -193,7 +193,7 @@ class BaseQRSLTask(BaseTask):
         if confirm_box:
             confirm_center = confirm_box.center()
             if self._click_with_alt(confirm_center[0], confirm_center[1], alt_down_delay=0.8, click_delay=1.5):
-                self.sleep(8)
+                self.sleep(10)
                 return True
 
         return False
@@ -241,8 +241,7 @@ class BaseQRSLTask(BaseTask):
                 continue  # 继续下一次循环
 
             # 5. 不在副本中，执行返回操作
-            self.back(after_sleep=2)
-            self.sleep(2)  # 等待2秒
+            self.back(after_sleep=5)
             self.next_frame()  # 刷新画面
 
             # 继续循环（下一次循环开始时会自动增加attempts）

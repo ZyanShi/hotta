@@ -20,7 +20,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         # 配置项（按 UI 显示顺序排列）
         self.default_config.update({
             'BOSS选择': '罗贝拉格/朱厌',
-            '等待超时': 900,              # 原为'战斗超时'，现统一为'等待超时'
+            '等待超时': 900,
             '循环次数': 10000,
             '搜索模式': '十字搜索',
             '提示信息': (
@@ -36,7 +36,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             '搜索模式': '选择宝箱搜索方式',
             '提示信息': '索敌范围',
         }
-        self.config_type['搜索模式'] = {'type': "drop_down", 'options': ['十字搜索', '米字搜索']}  # 改为米字搜索
+        self.config_type['搜索模式'] = {'type': "drop_down", 'options': ['十字搜索', '米字搜索']}
         self.config_type['BOSS选择'] = {'type': "drop_down", 'options': ['罗贝拉格/朱厌', '阿波菲斯（未施工待更新）']}
         self._source_key = self._get_source_key()
 
@@ -44,6 +44,9 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             '罗贝拉格/朱厌': None,
             '阿波菲斯': 'Apophis',
         }
+
+        # 新增：记录上次神临传送成功的时间（检测到主页面颜色）
+        self.last_shenlin_time = 0
 
     def _get_source_key(self):
         try:
@@ -295,7 +298,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.log_info("十字搜索超时，未找到宝箱")
         return None
 
-    # ---------- 米字搜索实现（替换原回字搜索）----------
     def _mi_search(self):
         timeout = 60
         self.log_info(f"启动米字搜索，超时{timeout}秒，宝箱阈值0.6")
@@ -327,7 +329,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     break
 
         def mover():
-            # 移动序列：每个元素可以是 (key, down_time, after_sleep) 或 (key1, key2, down_time, after_sleep)
             moves = [
                 ('w', 5.0, 0),
                 ('s', 9.0, 0),
@@ -335,11 +336,11 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                 ('a', 5.0, 0),
                 ('d', 9.0, 0),
                 ('a', 5.0, 0),
-                ('a', 'w', 5.0, 0),   # 同时按 a 和 w
-                ('s', 'd', 9.0, 0),   # 同时按 s 和 d
-                ('a', 'w', 5.0, 0),   # 同时按 a 和 w
-                ('w', 'd', 5.0, 0),   # 同时按 w 和 d
-                ('a', 's', 9.0, 0),   # 同时按 a 和 s
+                ('a', 'w', 5.0, 0),
+                ('s', 'd', 9.0, 0),
+                ('a', 'w', 5.0, 0),
+                ('w', 'd', 5.0, 0),
+                ('a', 's', 9.0, 0),
             ]
             for move in moves:
                 if stop_event.is_set() or found_event.is_set():
@@ -362,7 +363,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     key1, key2, down_time, after_sleep = move
                     self.log_debug(f"米字移动: 同时按{key1}+{key2} {down_time}秒")
                     try:
-                        # 同时按下两个键
                         self.send_key_down(key1)
                         self.send_key_down(key2)
                         press_start = time.time()
@@ -371,7 +371,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                                 break
                             self.sleep(0.05)
                     finally:
-                        # 同时释放两个键
                         self.send_key_up(key1)
                         self.send_key_up(key2)
                     if after_sleep > 0:
@@ -409,7 +408,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         mode = self.config.get('搜索模式', '十字搜索')
         if mode == '十字搜索':
             return self._cross_search()
-        return self._mi_search()  # 改为米字搜索
+        return self._mi_search()
 
     def _sleep_with_events(self, seconds, stop_event, found_event):
         interval = 0.2
@@ -597,19 +596,12 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.click(x, y, after_sleep=7)
         return True
 
-    def _cooldown_and_wait(self, elapsed, wait_timeout):
-        remaining = wait_timeout - elapsed
-        if remaining < 80:
-            wait_time = max(0, remaining)
-            self.log_info(f"本次循环耗时 {elapsed:.1f}秒，剩余 {remaining:.1f}秒 < 80，等待 {wait_time:.1f}秒")
-            self.sleep(wait_time)
-        else:
-            self.log_info(f"本次循环耗时 {elapsed:.1f}秒，剩余 {remaining:.1f}秒 >= 80，立即开始下一轮")
+    # 原冷却等待函数已移除，改用神临CD等待逻辑
 
     def run(self):
         try:
             self.log_info("===== 模块金币任务启动 =====", notify=True)
-            wait_timeout = self.config.get('等待超时', 900)   # 统一为'等待超时'
+            wait_timeout = self.config.get('等待超时', 900)
             max_loops = self.config.get('循环次数', 10000)
             loop_count = 0
 
@@ -617,6 +609,14 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                 loop_count += 1
                 self.log_info(f"--- 第 {loop_count}/{max_loops} 次循环开始 ---")
                 loop_start_time = time.time()
+
+                # 检查神临冷却（从第二次循环开始）
+                if loop_count > 1 and self.last_shenlin_time != 0:
+                    elapsed = time.time() - self.last_shenlin_time
+                    if elapsed < 60:
+                        wait_time = 60 - elapsed
+                        self.log_info(f"神临冷却中，已过 {elapsed:.1f}秒，需等待 {wait_time:.1f}秒")
+                        self.sleep(wait_time)
 
                 if not self.is_main_page():
                     self.log_error("无法进入游戏主页面，跳过本次循环")
@@ -641,10 +641,14 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     self.sleep(5)
                     continue
 
+                # 等待传送成功并激活战斗
                 if not self._wait_main_page_and_activate():
                     self.log_error("启动战斗流程失败")
                     self.sleep(5)
                     continue
+
+                # 记录神临传送成功的时间
+                self.last_shenlin_time = time.time()
 
                 phase_a_result, chest_found = self._phase_a_combat_monitoring(wait_timeout)
                 if phase_a_result == 'boss_found':
@@ -682,7 +686,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     self.sleep(5)
 
                 elapsed = time.time() - loop_start_time
-                self._cooldown_and_wait(elapsed, wait_timeout)
+                self.log_info(f"本次循环总耗时 {elapsed:.1f}秒")
 
             self.log_info(f"===== 模块金币任务结束，共完成 {loop_count} 次循环 =====", notify=True)
 

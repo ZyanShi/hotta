@@ -1,122 +1,97 @@
 import os
-
 import numpy as np
 from ok import ConfigOption
 
 version = "dev"
-#不需要修改version, Github Action打包会自动修改
 
-key_config_option = ConfigOption('游戏按键配置', { #全局配置示例
+# 游戏按键配置（包含源器键和技能键）
+key_config_option = ConfigOption('游戏按键配置', {
     '源器键': 'x',
+    '技能键': 'e',      # 新增：普通技能键，用于自动技能触发器
 }, description='游戏技能按键')
 
-
-def make_bottom_right_black(frame): #可选. 某些游戏截图时遮挡UID使用
-    """
-    Changes a portion of the frame's pixels at the bottom right to black.
-
-    Args:
-        frame: The input frame (NumPy array) from OpenCV.
-
-    Returns:
-        The modified frame with the bottom-right corner blackened.  Returns the original frame
-        if there's an error (e.g., invalid frame).
-    """
+def make_bottom_right_black(frame):
     try:
-        height, width = frame.shape[:2]  # Get height and width
-
-        # Calculate the size of the black rectangle
+        height, width = frame.shape[:2]
         black_width = int(0.13 * width)
         black_height = int(0.025 * height)
-
-        # Calculate the starting coordinates of the rectangle
         start_x = width - black_width
         start_y = height - black_height
-
-        # Create a black rectangle (NumPy array of zeros)
-        black_rect = np.zeros((black_height, black_width, frame.shape[2]), dtype=frame.dtype)  # Ensure same dtype
-
-        # Replace the bottom-right portion of the frame with the black rectangle
+        black_rect = np.zeros((black_height, black_width, frame.shape[2]), dtype=frame.dtype)
         frame[start_y:height, start_x:width] = black_rect
-
         return frame
     except Exception as e:
         print(f"Error processing frame: {e}")
         return frame
 
 config = {
-    'debug': False,  # Optional, default: False
-    'use_gui': True, # 目前只支持True
-    'config_folder': 'configs', #最好不要修改
-    'global_configs': [key_config_option],
-    'screenshot_processor': make_bottom_right_black, # 在截图的时候对frame进行修改, 可选
-    'gui_icon': 'icons/icon.png', #窗口图标, 最好不需要修改文件名
+    'debug': False,
+    'use_gui': True,
+    'config_folder': 'configs',
+    'global_configs': [key_config_option],  # 只保留一个游戏按键配置
+    'screenshot_processor': make_bottom_right_black,
+    'gui_icon': 'icons/icon.png',
     'wait_until_before_delay': 0,
     'wait_until_check_delay': 0,
-    'wait_until_settle_time': 0, #调用 wait_until时候, 在第一次满足条件的时候, 会等待再次检测, 以避免某些滑动动画没到预定位置就在动画路径中被检测到
-    'ocr': { #可选, 使用的OCR库
+    'wait_until_settle_time': 0,
+    'ocr': {
         'lib': 'onnxocr',
         'params': {
             'use_openvino': True,
         }
     },
-    'windows': {  # Windows游戏请填写此设置
+    'windows': {
         'exe': ['QRSL.exe'],
-        'hwnd_class': 'UnrealWindow', #增加重名检查准确度
-        'interaction': 'Genshin', # Genshin:某些操作可以后台, 部分游戏支持 PostMessage:可后台点击, 极少游戏支持 ForegroundPostMessage:前台使用PostMessage Pynput/PyDirect:仅支持前台使用
-        'capture_method': ['WGC', 'BitBlt_RenderFull'],  # Windows版本支持的话, 优先使用WGC, 否则使用BitBlt_Full. 支持的capture有 BitBlt, WGC, BitBlt_RenderFull, DXGI
-        'check_hdr': True, #当用户开启AutoHDR时候提示用户, 但不禁止使用
-        'force_no_hdr': False, #True=当用户开启AutoHDR时候禁止使用
-        'require_bg': True # 要求使用后台截图
-
+        'hwnd_class': 'UnrealWindow',
+        'interaction': 'Genshin',
+        'capture_method': ['WGC', 'BitBlt_RenderFull'],
+        'check_hdr': True,
+        'force_no_hdr': False,
+        'require_bg': True
     },
-
-    'start_timeout': 120,  # default 60
-    'window_size': { #ok-script窗口大小
+    'start_timeout': 120,
+    'window_size': {
         'width': 1200,
         'height': 800,
         'min_width': 600,
         'min_height': 450,
     },
     'supported_resolution': {
-        'ratio': '16:9', #支持的游戏分辨率
-        'min_size': (1280, 720), #支持的最低游戏分辨率
-        'resize_to': [(2560, 1440), (1920, 1080), (1600, 900), (1280, 720)], #可选, 如果非16:9自动缩放为 resize_to
+        'ratio': '16:9',
+        'min_size': (1280, 720),
+        'resize_to': [(2560, 1440), (1920, 1080), (1600, 900), (1280, 720)],
     },
-    'links': { # 关于里显示的链接, 可选
-            'default': {
-                'github': 'https://github.com/ok-oldking/ok-script-boilerplate',
-                'discord': 'https://discord.gg/vVyCatEBgA',
-                'sponsor': 'https://www.paypal.com/ncp/payment/JWQBH7JZKNGCQ',
-                'share': 'Download from https://github.com/ok-oldking/ok-script-boilerplate',
-                'faq': 'https://github.com/ok-oldking/ok-script-boilerplate'
-            }
-        },
-    'screenshots_folder': "screenshots", #截图存放目录, 每次重新启动会清空目录
-    'gui_title': 'ok-hotta',  #窗口名
-    'template_matching': { # 可选, 如使用OpenCV的模板匹配
-        'coco_feature_json': os.path.join('assets', 'result.json'), #coco格式标记, 需要png图片, 在debug模式运行后, 会对进行切图仅保留被标记部分以减少图片大小
-        'default_horizontal_variance': 0.002, #默认x偏移, 查找不传box的时候, 会根据coco坐标, match偏移box内的
-        'default_vertical_variance': 0.002, #默认y偏移
-        'default_threshold': 0.8, #默认threshold
+    'links': {
+        'default': {
+            'github': 'https://github.com/ok-oldking/ok-script-boilerplate',
+            'discord': 'https://discord.gg/vVyCatEBgA',
+            'sponsor': 'https://www.paypal.com/ncp/payment/JWQBH7JZKNGCQ',
+            'share': 'Download from https://github.com/ok-oldking/ok-script-boilerplate',
+            'faq': 'https://github.com/ok-oldking/ok-script-boilerplate'
+        }
     },
-    'version': version, #版本
-    'my_app': ['src.globals', 'Globals'], #可选. 全局单例对象, 可以存放加载的模型, 使用og.my_app调用
-    'onetime_tasks': [  # 用户点击触发的任务
-        ["src.tasks.LianHeZuoZhanTask", "LianHeZuoZhanTask"],  # 联合作战任务
+    'screenshots_folder': "screenshots",
+    'gui_title': 'ok-hotta',
+    'template_matching': {
+        'coco_feature_json': os.path.join('assets', 'result.json'),
+        'default_horizontal_variance': 0.002,
+        'default_vertical_variance': 0.002,
+        'default_threshold': 0.8,
+    },
+    'version': version,
+    'my_app': ['src.globals', 'Globals'],
+    'onetime_tasks': [
+        ["src.tasks.LianHeZuoZhanTask", "LianHeZuoZhanTask"],
         ["src.tasks.FishingTask", "FishingTask"],
-        ["src.tasks.TaoFaZuoZhanTask", "TaoFaZuoZhanTask"],    # 讨伐作战任务
+        ["src.tasks.TaoFaZuoZhanTask", "TaoFaZuoZhanTask"],
         ["src.tasks.MoKuaiJinBiTask", "MoKuaiJinBiTask"],
         ["src.tasks.ZhongFengTuPoTask", "ZhongFengTuPoTask"],
-        # ["src.tasks.MyOneTimeWithAGroup", "MyOneTimeWithAGroup"],
-        # ["src.tasks.MyOneTimeWithAGroup2", "MyOneTimeWithAGroup2"],
         ["ok", "DiagnosisTask"],
     ],
-    'trigger_tasks':[ # 不断执行的触发式任务
-        #["src.tasks.MyTriggerTask", "MyTriggerTask"],
+    'trigger_tasks': [
+        ["src.tasks.AutoSkillTask", "AutoSkillTask"],
     ],
     'custom_tabs': [
-      #  ['src.ui.MyTab', 'MyTab'], #可选, 自定义UI, 显示在侧边栏
+        # ['src.ui.MyTab', 'MyTab'],
     ],
 }
-

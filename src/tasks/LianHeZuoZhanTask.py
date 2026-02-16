@@ -1,5 +1,5 @@
 import time
-from ok import Box
+from ok import Box, TaskDisabledException
 from qfluentwidgets import FluentIcon
 from src.tasks.BaseQRSLTask import BaseQRSLTask
 
@@ -12,41 +12,42 @@ class LianHeZuoZhanTask(BaseQRSLTask):
         self.name = "联合作战"
         self.description = "矿砂"
         self.group_name = "精炼强化"
-        self.group_icon = FluentIcon.VPN
-        self.icon = FluentIcon.SYNC
+        self.group_icon = FluentIcon.SYNC
+        self.icon = FluentIcon.PEOPLE
 
+        # 配置项（UI显示顺序按字典定义顺序，'启用前进'在前）
         self.default_config.update({
             '循环次数': 10000,
-            '副本超时': 180,
-            '前进时间': 7,
-            '自动战斗延迟': 2,
+            '宝箱等待超时': 180,
+            '启用前进': False,      # 开关在前
+            '前进时间': 7,          # 时间在后
         })
 
         self.config_description = {
             '循环次数': '循环执行副本的次数',
-            '副本超时': '副本超时时间（秒）',
+            '宝箱等待超时': '等待宝箱的超时时间（秒）',
+            '启用前进': '是否执行前进步骤（若关闭则跳过前进，直接开启自动战斗）',
             '前进时间': '按W键前进的时间（秒）',
-            '自动战斗延迟': '前进后的等待时间（秒）',
         }
 
     def run(self):
         """联合作战自动化流程"""
-        self.log_info("开始联合作战任务...", notify=True)
-
-        max_loops = self.config.get('循环次数', 10000)
-        chest_timeout = self.config.get('宝箱等待超时', 180)
-        forward_time = self.config.get('前进时间', 7)
-        forward_delay = self.config.get('前进后延迟', 2)
-
-        self.log_info(f"配置参数: 循环次数={max_loops}, 宝箱超时={chest_timeout}秒, "
-                      f"前进时间={forward_time}秒, 前进延迟={forward_delay}秒")
-
-        loop_count = 0
-
         try:
+            self.log_info("===== 联合作战任务启动 =====", notify=True)
+
+            max_loops = self.config.get('循环次数', 10000)
+            chest_timeout = self.config.get('宝箱等待超时', 180)
+            enable_forward = self.config.get('启用前进', False)
+            forward_time = self.config.get('前进时间', 7)
+
+            self.log_info(f"配置参数: 循环次数={max_loops}, 宝箱超时={chest_timeout}秒, "
+                          f"启用前进={enable_forward}, 前进时间={forward_time}秒")
+
+            loop_count = 0
+
             while loop_count < max_loops:
                 loop_count += 1
-                self.log_info(f"开始第 {loop_count}/{max_loops} 次循环")
+                self.log_info(f"--- 第 {loop_count}/{max_loops} 次循环开始 ---")
 
                 # 确保游戏在主页面
                 self.log_info("检测是否在游戏主页面...")
@@ -66,11 +67,12 @@ class LianHeZuoZhanTask(BaseQRSLTask):
 
                 self.log_info("成功进入副本")
 
-                # 前进指定时间
-                self.log_info(f"前进 {forward_time} 秒...")
-                self.send_key_safe('w', down_time=forward_time)
-                self.log_info(f"前进完成，等待 {forward_delay} 秒延迟...")
-                self.sleep(forward_delay)
+                # 根据开关决定是否前进
+                if enable_forward:
+                    self.log_info(f"前进 {forward_time} 秒...")
+                    self.send_key_safe('w', down_time=forward_time)
+                else:
+                    self.log_info("前进功能已禁用，跳过前进步骤")
 
                 # 开启自动战斗
                 self.log_info("开启自动战斗...")
@@ -116,28 +118,28 @@ class LianHeZuoZhanTask(BaseQRSLTask):
                     self.log_info("检测到已打开的宝箱，直接退出副本...")
                 elif found_unopened_chest and chest_box:
                     self.log_info("检测到未打开的宝箱，尝试接近并打开...")
-                    success = self.approach_chest(max_walk_time=chest_timeout - (time.time() - start_time))
+                    remaining_time = chest_timeout - (time.time() - start_time)
+                    success = self.approach_chest(max_walk_time=remaining_time)
                     if success:
                         self.log_info("成功打开宝箱")
                     else:
                         self.log_error("打开宝箱失败")
                 else:
-                    self.log_warning(f"{chest_timeout}秒内未找到任何宝箱，退出副本重试")
+                    self.log_error(f"{chest_timeout}秒内未找到任何宝箱，退出副本重试")
 
                 # 退出副本
                 self.log_info("退出副本...")
                 self.exit_dungeon()
 
-                self.log_info(f"第 {loop_count} 次循环完成，等待5秒后开始下一次...")
-                self.sleep(5)
+                self.log_info(f"第 {loop_count} 次循环完成")
 
+            # 循环正常结束
+            self.log_info(f"===== 联合作战任务结束，共完成 {loop_count} 次循环 =====", notify=True)
+
+        except TaskDisabledException:
+            # 用户手动停止，仅记录信息，不视为错误
+            self.log_info("联合作战任务被用户手动停止")
         except Exception as e:
             self.log_error(f"任务执行过程中出现异常: {e}", exception=e, notify=True)
             self.screenshot("lianhezuozhan_error")
-
-        finally:
-            self.log_info(f"联合作战任务执行完成！共完成 {loop_count} 次循环", notify=True)
-
-    def log_warning(self, message):
-        """记录警告级别的日志"""
-        self.log_info(f"⚠️ {message}")
+            raise   # 重新抛出，让框架知道任务异常结束

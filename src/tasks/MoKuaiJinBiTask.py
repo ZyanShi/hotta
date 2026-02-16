@@ -14,8 +14,8 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         super().__init__(*args, **kwargs)
         self.name = "模块金币"
         self.description = "自动挑战世界BOSS并拾取宝箱"
-        self.group_icon = FluentIcon.GAME
-        self.icon = FluentIcon.GAME
+        self.group_icon = FluentIcon.MARKET
+        self.icon = FluentIcon.MARKET
 
         # 配置项（按 UI 显示顺序排列）
         self.default_config.update({

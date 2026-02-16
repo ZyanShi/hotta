@@ -1,6 +1,6 @@
 import time
 from ok import BaseTask, Box
-
+from ok import TaskDisabledException
 
 class BaseQRSLTask(BaseTask):
     """QRSL游戏专用基础任务类"""
@@ -32,6 +32,9 @@ class BaseQRSLTask(BaseTask):
         try:
             operation_func()
             return True
+        except TaskDisabledException:
+            # 用户主动停止，重新抛出以便上层捕获
+            raise
         except Exception as e:
             self.log_error(f"操作失败: {e}")
             return False
@@ -94,7 +97,7 @@ class BaseQRSLTask(BaseTask):
 
     def wait_for_exit_button_white(self, timeout=60):
         """等待退出按钮变为白色"""
-        self.log_info(f"等待进入副本（退出按钮变白），超时{timeout}秒...")
+        self.log_info(f"等待进入副本，超时{timeout}秒...")
         start_time = time.time()
 
         while time.time() - start_time < timeout:
@@ -120,7 +123,7 @@ class BaseQRSLTask(BaseTask):
         self.log_error("等待目标颜色超时")
         return False
 
-    def enter_team(self, alt_down_delay=0.8, click_delay=1.5, alt_key='alt'):
+    def enter_team(self, alt_down_delay=0.8, click_delay=1, alt_key='alt'):
         """使用Alt+点击进入队伍"""
         target_x, target_y = self._get_scaled_coordinates(*self.ENTER_TEAM_COORDS)
 
@@ -154,14 +157,14 @@ class BaseQRSLTask(BaseTask):
         self.log_info("开始进入副本流程...")
 
         # 进入队伍并找到"参加"按钮
-        success, attend_box = self.enter_team(alt_down_delay=0.8, click_delay=1.5)
+        success, attend_box = self.enter_team(alt_down_delay=0.8, click_delay=1)
         if not success or not attend_box:
             self.log_error("进入队伍失败，无法继续进入副本")
             return False
 
         # 点击"参加"按钮
         self.log_info("点击'参加'按钮")
-        self.click_box(attend_box, after_sleep=1.5)
+        self.click_box(attend_box, after_sleep=1)
 
         # 等待"进入"按钮出现
         enter_box = self.wait_feature('enter', time_out=10, threshold=0.75)
@@ -217,7 +220,6 @@ class BaseQRSLTask(BaseTask):
             current_x, current_y = self._get_scaled_coordinates(*self.MAIN_PAGE_COORDS)
             pixel_color = frame[current_y, current_x]
 
-            # 修正：只进行颜色相似度检查，不需要检查pixel_color是否为真
             if self._color_similar(pixel_color, self.TARGET_COLOR_BGR):
                 self.sleep(2)  # 等待2秒确认
                 return True
@@ -227,6 +229,14 @@ class BaseQRSLTask(BaseTask):
             if back_box:
                 self.click_box(back_box, after_sleep=0.5)
                 self.sleep(2)  # 等待2秒
+                self.next_frame()  # 刷新画面
+                continue  # 继续下一次循环
+
+            # 新增：查找取消按钮（例如弹窗上的“取消”）
+            cancel_box = self.find_one('cancel', threshold=0.75)
+            if cancel_box:
+                self.click_box(cancel_box, after_sleep=0.5)
+                self.sleep(2)  # 等待弹窗关闭
                 self.next_frame()  # 刷新画面
                 continue  # 继续下一次循环
 
@@ -241,7 +251,7 @@ class BaseQRSLTask(BaseTask):
                 continue  # 继续下一次循环
 
             # 5. 不在副本中，执行返回操作
-            self.back(after_sleep=5)
+            self.back(after_sleep=2)
             self.next_frame()  # 刷新画面
 
             # 继续循环（下一次循环开始时会自动增加attempts）
@@ -401,9 +411,34 @@ class BaseQRSLTask(BaseTask):
             self.send_key_down(key)
             self.sleep(down_time)
             self.send_key_up(key)
+        except TaskDisabledException:
+            raise
         except Exception:
+            # 如果普通方法失败，尝试备用方法
             self.send_key(key, down_time=down_time)
 
     def send_key_safe(self, key, down_time=0.1):
         """安全的按键方法"""
         self._send_key_safe(key, down_time)
+
+    def wait_for_main_page_color(self, timeout=60):
+        """等待主页指定坐标的颜色变为目标颜色"""
+        self.log_info(f"等待主页颜色出现，超时{timeout}秒...")
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            frame = self.frame
+            if frame is None:
+                self.sleep(0.5)
+                continue
+            x, y = self._get_scaled_coordinates(*self.MAIN_PAGE_COORDS)
+            height, width = frame.shape[:2]
+            if y >= height or x >= width:
+                self.sleep(0.5)
+                continue
+            pixel_color = frame[y, x]
+            if self._color_similar(pixel_color, self.TARGET_COLOR_BGR, tolerance=30):
+                self.log_info("检测到主页颜色")
+                return True
+            self.sleep(0.5)
+        self.log_error("等待主页颜色超时")
+        return False

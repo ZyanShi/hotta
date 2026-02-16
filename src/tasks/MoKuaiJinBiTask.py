@@ -424,7 +424,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         max_attempts = 20
         for attempt in range(1, max_attempts + 1):
             self.log_debug(f"第 {attempt} 次按下S键 (0.2秒)")
-            self.send_key('s', down_time=0.2)
+            self.send_key_safe('s', down_time=0.2)  # 修改点
             self.sleep(0.2)
             if self._is_character_state_normal():
                 self.log_info(f"状态已恢复正常，尝试次数: {attempt}")
@@ -573,7 +573,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.log_info("开始连续按F并检测openchest1/2，超时10秒，阈值0.6")
 
         while time.time() - start_time < timeout:
-            self.send_key('f', down_time=0.05)
+            self.send_key_safe('f', down_time=0.05)  # 修改点
             frame = self.frame
             if frame is not None:
                 for name in ['openchest1', 'openchest2']:
@@ -595,8 +595,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.log_info(f"点击奖励坐标 ({x}, {y})")
         self.click(x, y, after_sleep=7)
         return True
-
-    # 原冷却等待函数已移除，改用神临CD等待逻辑
 
     def run(self):
         try:

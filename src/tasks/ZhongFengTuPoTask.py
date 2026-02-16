@@ -23,7 +23,7 @@ class ZhongFengTuPoTask(BaseQRSLTask):
         }
         self.config_type['关卡选择'] = {
             'type': "drop_down",
-            'options': ['当前关卡', '第一关', '第二关', '第三关', '第四关', '第五关', '第六关', '第七关', '第八关']
+            'options': ['当前关卡']
         }
 
     def _wait_and_click_feature(self, feature_name, timeout, after_sleep=0, raise_if_not_found=False):
@@ -71,7 +71,7 @@ class ZhongFengTuPoTask(BaseQRSLTask):
 
                 # 第二步：发送esc键
                 self.log_info("按ESC键打开菜单")
-                self.send_key('esc')
+                self.send_key_safe('esc', down_time=0.02)  # 修改点
                 self.sleep(1)
 
                 # 第三步：点击“工会”图片

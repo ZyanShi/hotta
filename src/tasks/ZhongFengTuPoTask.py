@@ -30,7 +30,7 @@ class ZhongFengTuPoTask(BaseQRSLTask):
         box = self.wait_feature(feature_name, time_out=timeout, raise_if_not_found=False)
         if box:
             self.log_info(f"找到并点击 [{feature_name}]")
-            self.click_box(box)
+            self._click_box_safe(box)                              # 替换
             if after_sleep > 0:
                 self.sleep(after_sleep)
             return True
@@ -63,36 +63,30 @@ class ZhongFengTuPoTask(BaseQRSLTask):
                 loop_count += 1
                 self.log_info(f"--- 第 {loop_count}/{max_loops} 次循环开始 ---")
 
-                # 第一步：确保在主页面
                 if not self.is_main_page():
                     self.log_error("无法进入游戏主页面，跳过本次循环")
                     self.sleep(5)
                     continue
 
-                # 第二步：发送esc键
                 self.log_info("按ESC键打开菜单")
-                self.send_key_safe('esc', down_time=0.02)  # 修改点
+                self.send_key_safe('esc', down_time=0.02)
                 self.sleep(1)
 
-                # 第三步：点击“工会”图片
                 if not self._wait_and_click_feature('gonghui', timeout=5, after_sleep=0):
                     self.log_error("未找到工会图标，跳过本次循环")
                     self.sleep(5)
                     continue
 
-                # 第四步：点击“活动”图片
                 if not self._wait_and_click_feature('huodong', timeout=10, after_sleep=0):
                     self.log_error("未找到活动图标，跳过本次循环")
                     self.sleep(5)
                     continue
 
-                # 第五步：点击“众峰突破”图片
                 if not self._wait_and_click_feature('zhongfengtupo', timeout=10, after_sleep=0):
                     self.log_error("未找到众峰突破图标，跳过本次循环")
                     self.sleep(5)
                     continue
 
-                # 第六步：判断页面（等待back或jinruzhandou）
                 box, name = self._wait_for_any_feature(['back', 'jinruzhandou'], timeout=10)
                 if name is None:
                     self.log_error("既未出现返回按钮也未出现进入战斗按钮，跳过本次循环")
@@ -101,12 +95,11 @@ class ZhongFengTuPoTask(BaseQRSLTask):
 
                 if name == 'jinruzhandou':
                     self.log_info("检测到进入战斗按钮，点击它")
-                    self.click_box(box)
+                    self._click_box_safe(box)                      # 替换
                     self.sleep(1)
 
                 self.log_info("已进入众峰突破界面")
 
-                # 第七步：根据关卡选择执行操作
                 level = self.config.get('关卡选择', '当前关卡')
                 if level == '当前关卡':
                     if not self._wait_and_click_feature('enterchallenge', timeout=10, after_sleep=0):
@@ -118,24 +111,20 @@ class ZhongFengTuPoTask(BaseQRSLTask):
                     self.sleep(5)
                     continue
 
-                # 第八步：点击“确认”按钮
                 if not self._wait_and_click_feature('sure', timeout=5, after_sleep=10):
                     self.log_error("未找到确认按钮，跳过本次循环")
                     self.sleep(5)
                     continue
 
-                # 第九步：等待退出按钮变白（进入副本）
                 self.log_info("等待退出按钮变白...")
                 if not self.wait_for_exit_button_white(timeout=60):
                     self.log_error("等待退出按钮变白超时，跳过本次循环")
                     self.sleep(5)
                     continue
 
-                # 第十步：退出副本
                 self.log_info("退出副本")
                 self.exit_dungeon()
 
-                # 第十一步：等待主页颜色（使用基类方法）
                 if not self.wait_for_main_page_color(timeout=60):
                     self.log_error("等待主页颜色超时，跳过本次循环")
                     self.sleep(5)

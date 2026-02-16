@@ -12,7 +12,7 @@ class LianHeZuoZhanTask(BaseQRSLTask):
         self.name = "联合作战"
         self.description = "矿砂"
         self.group_name = "精炼强化"
-        self.group_icon = FluentIcon.SYNC
+        self.group_icon = FluentIcon.UP
         self.icon = FluentIcon.PEOPLE
 
         # 配置项（UI显示顺序按字典定义顺序，'启用前进'在前）

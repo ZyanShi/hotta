@@ -1,4 +1,3 @@
-# file: src/tasks/MoKuaiJinBiTask.py
 import time
 import threading
 from ok import Box, TaskDisabledException
@@ -8,7 +7,7 @@ from src.config import key_config_option
 
 
 class MoKuaiJinBiTask(BaseQRSLTask):
-    """模块金币·世界BOSS自动化任务（无副本退出逻辑，所有宝箱阈值0.6）"""
+    """模块金币·世界BOSS自动化任务"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -17,7 +16,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.group_icon = FluentIcon.MARKET
         self.icon = FluentIcon.MARKET
 
-        # 配置项（按 UI 显示顺序排列）
         self.default_config.update({
             'BOSS选择': '罗贝拉格/朱厌',
             '等待超时': 900,
@@ -39,13 +37,10 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.config_type['搜索模式'] = {'type': "drop_down", 'options': ['十字搜索', '米字搜索']}
         self.config_type['BOSS选择'] = {'type': "drop_down", 'options': ['罗贝拉格/朱厌', '阿波菲斯（未施工待更新）']}
         self._source_key = self._get_source_key()
-
         self.boss_image_map = {
             '罗贝拉格/朱厌': None,
             '阿波菲斯': 'Apophis',
         }
-
-        # 新增：记录上次神临传送成功的时间（检测到主页面颜色）
         self.last_shenlin_time = 0
 
     def _get_source_key(self):
@@ -62,7 +57,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.sleep(2)
         click_x, click_y = self._get_scaled_coordinates(350, 940)
         self.log_info(f"点击世界BOSS入口，缩放后坐标: ({click_x}, {click_y})")
-        self.click(click_x, click_y, after_sleep=2)
+        self._click_safe(click_x, click_y, after_sleep=2)           # 替换
         return True
 
     def _select_boss_by_config(self):
@@ -78,7 +73,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         box = self.wait_feature(feature_name, time_out=timeout, raise_if_not_found=False)
         if box:
             self.log_info(f"找到并点击 [{feature_name}]")
-            self.click_box(box)
+            self._click_box_safe(box)                              # 替换
             if after_sleep > 0:
                 self.sleep(after_sleep)
             return True
@@ -276,7 +271,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         t2 = threading.Thread(target=mover, daemon=True)
         t1.start()
         t2.start()
-
         start_time = time.time()
         try:
             while not found_event.is_set() and time.time() - start_time < timeout:
@@ -287,11 +281,9 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             t1.join(timeout=1)
             t2.join(timeout=1)
             raise
-
         stop_event.set()
         t1.join(timeout=1)
         t2.join(timeout=1)
-
         if found_event.is_set():
             self.log_info("十字搜索成功找到宝箱")
             return chest_box[0]
@@ -382,7 +374,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         t2 = threading.Thread(target=mover, daemon=True)
         t1.start()
         t2.start()
-
         start_time = time.time()
         try:
             while not found_event.is_set() and time.time() - start_time < timeout:
@@ -393,11 +384,9 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             t1.join(timeout=1)
             t2.join(timeout=1)
             raise
-
         stop_event.set()
         t1.join(timeout=1)
         t2.join(timeout=1)
-
         if found_event.is_set():
             self.log_info("米字搜索成功找到宝箱")
             return chest_box[0]
@@ -424,7 +413,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         max_attempts = 20
         for attempt in range(1, max_attempts + 1):
             self.log_debug(f"第 {attempt} 次按下S键 (0.2秒)")
-            self.send_key_safe('s', down_time=0.2)  # 修改点
+            self.send_key_safe('s', down_time=0.2)
             self.sleep(0.2)
             if self._is_character_state_normal():
                 self.log_info(f"状态已恢复正常，尝试次数: {attempt}")
@@ -573,7 +562,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.log_info("开始连续按F并检测openchest1/2，超时10秒，阈值0.6")
 
         while time.time() - start_time < timeout:
-            self.send_key_safe('f', down_time=0.05)  # 修改点
+            self.send_key_safe('f', down_time=0.05)
             frame = self.frame
             if frame is not None:
                 for name in ['openchest1', 'openchest2']:
@@ -581,7 +570,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     if boxes:
                         box = boxes[0]
                         self.log_info(f"检测到 {name} 图片，立即点击")
-                        self.click_box(box)
+                        self._click_box_safe(box)                    # 替换
                         self.sleep(1)
                         self._openchest_box = box
                         return True
@@ -593,7 +582,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
     def _claim_reward(self):
         x, y = self._get_scaled_coordinates(1255, 575)
         self.log_info(f"点击奖励坐标 ({x}, {y})")
-        self.click(x, y, after_sleep=7)
+        self._click_safe(x, y, after_sleep=7)                         # 替换
         return True
 
     def run(self):
@@ -608,7 +597,6 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                 self.log_info(f"--- 第 {loop_count}/{max_loops} 次循环开始 ---")
                 loop_start_time = time.time()
 
-                # 检查神临冷却（从第二次循环开始）
                 if loop_count > 1 and self.last_shenlin_time != 0:
                     elapsed = time.time() - self.last_shenlin_time
                     if elapsed < 60:
@@ -639,13 +627,11 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     self.sleep(5)
                     continue
 
-                # 等待传送成功并激活战斗
                 if not self._wait_main_page_and_activate():
                     self.log_error("启动战斗流程失败")
                     self.sleep(5)
                     continue
 
-                # 记录神临传送成功的时间
                 self.last_shenlin_time = time.time()
 
                 phase_a_result, chest_found = self._phase_a_combat_monitoring(wait_timeout)

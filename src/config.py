@@ -82,9 +82,9 @@ config = {
     'my_app': ['src.globals', 'Globals'],
     'onetime_tasks': [
         ["src.tasks.LianHeZuoZhanTask", "LianHeZuoZhanTask"],
-        ["src.tasks.FishingTask", "FishingTask"],
         ["src.tasks.TaoFaZuoZhanTask", "TaoFaZuoZhanTask"],
         ["src.tasks.MoKuaiJinBiTask", "MoKuaiJinBiTask"],
+        ["src.tasks.FishingTask", "FishingTask"],
         ["src.tasks.ZhongFengTuPoTask", "ZhongFengTuPoTask"],
         ["ok", "DiagnosisTask"],
     ],

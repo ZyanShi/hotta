@@ -298,7 +298,7 @@ class BaseQRSLTask(BaseTask):
                 down_time = 1.0
             else:
                 key = 'a' if horizontal_error < 0 else 'd'
-                down_time = 0.2
+                down_time = 0.1
             self._send_key_safe(key, down_time)
             return False
         if chest_y < vertical_threshold:

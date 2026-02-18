@@ -35,7 +35,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             '提示信息': '索敌范围',
         }
         self.config_type['搜索模式'] = {'type': "drop_down", 'options': ['十字搜索', '米字搜索']}
-        self.config_type['BOSS选择'] = {'type': "drop_down", 'options': ['罗贝拉格/朱厌', '阿波菲斯（未施工待更新）']}
+        self.config_type['BOSS选择'] = {'type': "drop_down", 'options': ['罗贝拉格/朱厌', '阿波菲斯']}
         self._source_key = self._get_source_key()
         self.boss_image_map = {
             '罗贝拉格/朱厌': None,
@@ -147,7 +147,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         return color1_match and color2_match
 
     def _phase_b_wait_boss_ui_disappear(self, timeout=600):
-        self.log_info(f"等待首领提示消失，超时{timeout}秒（单次判定）...")
+        self.log_info(f"等待首领提示消失，超时{timeout}秒（单次判定，双点检测）...")
         start = time.time()
         while time.time() - start < timeout:
             frame = self.frame
@@ -156,26 +156,23 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                 continue
             x1, y1 = self._get_scaled_coordinates(1216, 157)
             x2, y2 = self._get_scaled_coordinates(22, 410)
-            x3, y3 = self._get_scaled_coordinates(758, 974)
             h, w = frame.shape[:2]
-            if y1 < h and x1 < w and y2 < h and x2 < w and y3 < h and x3 < w:
+            if y1 < h and x1 < w and y2 < h and x2 < w:
                 pixel1 = frame[y1, x1]
                 pixel2 = frame[y2, x2]
-                pixel3 = frame[y3, x3]
 
                 # 判断每个点是否仍然符合“首领存在”的颜色
                 spawned1 = (pixel1[0] == 161 and pixel1[1] == 209 and pixel1[2] == 47)
                 spawned2 = (pixel2[0] == 237 and pixel2[1] == 166 and pixel2[2] == 62)
-                spawned3 = (pixel3[0] == 255 and pixel3[1] == 255 and pixel3[2] == 255)
 
-                if not (spawned1 or spawned2 or spawned3):
-                    # 三个点均不匹配存在色，说明首领提示已消失
-                    self.log_info("检测到三个点均不匹配存在色，首领提示已消失")
+                if not (spawned1 or spawned2):
+                    # 两个点均不匹配存在色，说明首领提示已消失
+                    self.log_info("检测到两个点均不匹配存在色，首领提示已消失")
                     return True
                 else:
                     self.log_debug("至少一个点仍匹配存在色，继续等待")
             else:
-                # 坐标越界时重置（实际极少发生）
+                # 坐标越界时继续循环
                 pass
             self.sleep(2)
 
@@ -458,7 +455,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         ocr_box = Box(x1, y1, width=x2 - x1, height=y2 - y1)
 
         ocr_confirm_start = None
-        STABLE_TIME = 0.5
+        STABLE_TIME = 0.3
 
         try:
             while time.time() - start_time < max_walk_time:
@@ -542,10 +539,49 @@ class MoKuaiJinBiTask(BaseQRSLTask):
 
     def _phase_chest_pickup(self, chest_box=None):
         self.log_info("进入宝箱拾取阶段")
-        if not self.approach_bosschest(max_walk_time=60, target_chest=chest_box):
-            self.log_error("接近宝箱失败（未检测到太极匣或高级密码箱）")
+
+        max_retries = 3
+        for retry in range(max_retries):
+            # 尝试接近宝箱
+            if not self.approach_bosschest(max_walk_time=60, target_chest=chest_box):
+                self.log_error(f"接近宝箱失败 (第{retry + 1}次)")
+                return False
+
+            # 短暂等待后，再次确认目标文字是否仍然存在
+            self.sleep(1)
+            frame = self.frame
+            if frame is None:
+                self.log_debug("无法获取画面，继续重试")
+                continue
+
+            x1, y1 = self._get_scaled_coordinates(1110, 520)
+            x2, y2 = self._get_scaled_coordinates(1280, 575)
+            ocr_box = Box(x1, y1, width=x2 - x1, height=y2 - y1)
+
+            try:
+                ocr_results = self.ocr(box=ocr_box, target_height=540)
+                text_found = False
+                if ocr_results:
+                    for box in ocr_results:
+                        text = box.name.strip()
+                        if ('太极匣' in text) or ('高级密码箱' in text):
+                            text_found = True
+                            break
+                if text_found:
+                    self.log_info("目标文字仍存在，继续拾取流程")
+                    break  # 文字存在，跳出重试循环
+                else:
+                    self.log_info("目标文字已消失，重新接近宝箱")
+                    # 继续下一次重试
+            except Exception as e:
+                self.log_debug(f"OCR确认异常: {e}，继续重试")
+                continue
+        else:
+            # 重试次数用尽仍未稳定
+            self.log_error("多次接近后文字仍未稳定存在，拾取失败")
             return False
 
+        # 后续原有逻辑：等待2秒、检查角色状态、按F拾取...
         self.log_info("等待2秒后检测角色状态...")
         self.sleep(2)
 
@@ -570,7 +606,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     if boxes:
                         box = boxes[0]
                         self.log_info(f"检测到 {name} 图片，立即点击")
-                        self._click_box_safe(box)                    # 替换
+                        self._click_box_safe(box)
                         self.sleep(1)
                         self._openchest_box = box
                         return True

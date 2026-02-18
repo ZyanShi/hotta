@@ -176,14 +176,12 @@ class BaseQRSLTask(BaseTask):
                 return True
             back_box = self.find_one('back', threshold=0.75)
             if back_box:
-                self._click_box_safe(back_box, after_sleep=0.5)   # 替换
-                self.sleep(2)
+                self._click_box_safe(back_box, after_sleep=2)
                 self.next_frame()
                 continue
             cancel_box = self.find_one('cancel', threshold=0.75)
             if cancel_box:
-                self._click_box_safe(cancel_box, after_sleep=0.5) # 替换
-                self.sleep(2)
+                self._click_box_safe(cancel_box, after_sleep=2)
                 self.next_frame()
                 continue
             check_x, check_y = self._get_scaled_coordinates(*self.EXIT_CHECK_COORDS)

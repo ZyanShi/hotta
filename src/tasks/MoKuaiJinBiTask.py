@@ -147,9 +147,8 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         return color1_match and color2_match
 
     def _phase_b_wait_boss_ui_disappear(self, timeout=600):
-        self.log_info(f"等待首领提示消失，超时{timeout}秒（连续两次确认）...")
+        self.log_info(f"等待首领提示消失，超时{timeout}秒（单次判定）...")
         start = time.time()
-        consecutive_disappear = 0
         while time.time() - start < timeout:
             frame = self.frame
             if frame is None:
@@ -163,22 +162,23 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                 pixel1 = frame[y1, x1]
                 pixel2 = frame[y2, x2]
                 pixel3 = frame[y3, x3]
-                still_spawned = (pixel1[0] == 161 and pixel1[1] == 209 and pixel1[2] == 47 and
-                                 pixel2[0] == 237 and pixel2[1] == 166 and pixel2[2] == 62 and
-                                 pixel3[0] == 255 and pixel3[1] == 255 and pixel3[2] == 255)
-                if still_spawned:
-                    if consecutive_disappear > 0:
-                        self.log_debug("首领状态重新出现，重置消失计数")
-                    consecutive_disappear = 0
+
+                # 判断每个点是否仍然符合“首领存在”的颜色
+                spawned1 = (pixel1[0] == 161 and pixel1[1] == 209 and pixel1[2] == 47)
+                spawned2 = (pixel2[0] == 237 and pixel2[1] == 166 and pixel2[2] == 62)
+                spawned3 = (pixel3[0] == 255 and pixel3[1] == 255 and pixel3[2] == 255)
+
+                if not (spawned1 or spawned2 or spawned3):
+                    # 三个点均不匹配存在色，说明首领提示已消失
+                    self.log_info("检测到三个点均不匹配存在色，首领提示已消失")
+                    return True
                 else:
-                    consecutive_disappear += 1
-                    self.log_debug(f"检测到首领消失，连续第 {consecutive_disappear} 次")
-                    if consecutive_disappear >= 2:
-                        self.log_info("连续两次确认首领提示已消失")
-                        return True
+                    self.log_debug("至少一个点仍匹配存在色，继续等待")
             else:
-                consecutive_disappear = 0
+                # 坐标越界时重置（实际极少发生）
+                pass
             self.sleep(2)
+
         self.log_error(f"等待首领提示消失超时（{timeout}秒）")
         return False
 

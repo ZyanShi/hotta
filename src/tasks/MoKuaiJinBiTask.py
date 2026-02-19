@@ -12,6 +12,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "模块金币"
+        self.group_name = "精炼强化"
         self.description = "自动挑战世界BOSS并拾取宝箱"
         self.group_icon = FluentIcon.MARKET
         self.icon = FluentIcon.MARKET

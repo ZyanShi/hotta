@@ -86,6 +86,7 @@ config = {
         ["src.tasks.MoKuaiJinBiTask", "MoKuaiJinBiTask"],
         ["src.tasks.FishingTask", "FishingTask"],
         ["src.tasks.ZhongFengTuPoTask", "ZhongFengTuPoTask"],
+        ["src.tasks.JieXianMaoDianTask", "JieXianMaoDianTask"],
         ["ok", "DiagnosisTask"],
     ],
     'trigger_tasks': [

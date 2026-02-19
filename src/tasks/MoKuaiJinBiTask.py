@@ -407,17 +407,17 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             elapsed += interval
 
     def _recover_character_state(self):
-        self.log_info("角色状态异常，尝试按S键恢复")
-        max_attempts = 20
-        for attempt in range(1, max_attempts + 1):
-            self.log_debug(f"第 {attempt} 次按下S键 (0.2秒)")
-            self.send_key_safe('s', down_time=0.2)
-            self.sleep(0.2)
+        self.log_info("角色状态异常，尝试按S键恢复，超时150秒")
+        start_time = time.time()
+        timeout = 150
+        while time.time() - start_time < timeout:
             if self._is_character_state_normal():
-                self.log_info(f"状态已恢复正常，尝试次数: {attempt}")
+                self.log_info("状态已恢复正常")
                 return True
-            self.log_debug(f"第 {attempt} 次按S后状态仍未恢复")
-        self.log_error(f"状态恢复失败，已尝试 {max_attempts} 次按S")
+            self.log_debug("按下S键 (0.2秒)")
+            self.send_key_safe('s', down_time=0.2)
+            self.sleep(0.2)  # 等待下一次检查
+        self.log_error(f"状态恢复失败，超时{timeout}秒")
         return False
 
     def _is_character_state_normal(self):

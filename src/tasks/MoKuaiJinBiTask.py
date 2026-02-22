@@ -242,10 +242,10 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         def mover():
             moves = [
                 ('w', 5.0, 0.5),
-                ('s', 9.0, 0.5),
+                ('s', 10.0, 0.5),
                 ('w', 5.0, 0.5),
                 ('a', 5.0, 0.5),
-                ('d', 9.0, 0.5),
+                ('d', 10.0, 0.5),
             ]
             for key, down_time, after_sleep in moves:
                 if stop_event.is_set() or found_event.is_set():
@@ -289,8 +289,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         return None
 
     def _mi_search(self):
-        timeout = 60
-        self.log_info(f"启动米字搜索，超时{timeout}秒，宝箱阈值0.6")
+        self.log_info(f"启动米字搜索，宝箱阈值0.6，执行完整移动序列")
         found_event = threading.Event()
         stop_event = threading.Event()
         chest_box = [None]
@@ -320,17 +319,17 @@ class MoKuaiJinBiTask(BaseQRSLTask):
 
         def mover():
             moves = [
-                ('w', 5.0, 0),
-                ('s', 9.0, 0),
-                ('w', 5.0, 0),
-                ('a', 5.0, 0),
-                ('d', 9.0, 0),
-                ('a', 5.0, 0),
-                ('a', 'w', 5.0, 0),
-                ('s', 'd', 9.0, 0),
-                ('a', 'w', 5.0, 0),
-                ('w', 'd', 5.0, 0),
-                ('a', 's', 9.0, 0),
+                ('w', 5.0, 0.5),
+                ('s', 10.0, 0.5),
+                ('w', 5.0, 0.5),
+                ('a', 5.0, 0.5),
+                ('d', 10.0, 0.5),
+                ('a', 5.0, 0.5),
+                ('a', 'w', 5.0, 0.5),
+                ('s', 'd', 10.0, 0.5),
+                ('a', 'w', 5.0, 0.5),
+                ('w', 'd', 5.0, 0.5),
+                ('a', 's', 10.0, 0.5),
             ]
             for move in moves:
                 if stop_event.is_set() or found_event.is_set():
@@ -365,6 +364,8 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                         self.send_key_up(key2)
                     if after_sleep > 0:
                         self._sleep_with_events(after_sleep, stop_event, found_event)
+            # 移动序列执行完毕，无论是否找到宝箱都停止搜索线程
+            stop_event.set()
             if not found_event.is_set():
                 self.log_debug("米字移动序列执行完毕，未找到宝箱")
 
@@ -372,23 +373,21 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         t2 = threading.Thread(target=mover, daemon=True)
         t1.start()
         t2.start()
-        start_time = time.time()
         try:
-            while not found_event.is_set() and time.time() - start_time < timeout:
-                self.sleep(0.1)
+            # 等待移动线程结束（它会自动设置 stop_event）
+            t2.join()
+            # 等待搜索线程结束
+            t1.join()
         except TaskDisabledException:
             self.log_info("米字搜索被用户手动停止")
             stop_event.set()
             t1.join(timeout=1)
             t2.join(timeout=1)
             raise
-        stop_event.set()
-        t1.join(timeout=1)
-        t2.join(timeout=1)
         if found_event.is_set():
             self.log_info("米字搜索成功找到宝箱")
             return chest_box[0]
-        self.log_info("米字搜索超时或序列结束，未找到宝箱")
+        self.log_info("米字移动序列结束，未找到宝箱")
         return None
 
     def cross_search(self):

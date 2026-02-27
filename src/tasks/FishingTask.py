@@ -123,27 +123,46 @@ class FishingTask(BaseQRSLTask):
         return False
 
     def _control_fishing(self):
+        """遛鱼控制逻辑，包含 2 秒黄色消失稳定检测"""
         self.log_info("开始遛鱼")
         control_box = self._get_scaled_box(*self.FISH_TARGET_REF)
         hook_box = self._get_scaled_box(*self.FISH_HOOK_REF)
         current_key = None
         fishing_start_time = time.time()
+        color_zero_start = None  # 记录黄色消失的起始时间
+
         while True:
+            # 检测鱼钩黄色百分比（仅当超过5秒后）
             if time.time() - fishing_start_time >= 5:
-                if self._get_color_percentage(hook_box, self.COLOR_HOOK, self.COLOR_TOLERANCE) <= 0:
-                    self.log_info("鱼体力耗尽，准备收杆")
-                    if current_key:
-                        self.send_key_up(current_key)
-                    return True
+                hook_percent = self._get_color_percentage(hook_box, self.COLOR_HOOK, self.COLOR_TOLERANCE)
+                if hook_percent <= 0:
+                    if color_zero_start is None:
+                        color_zero_start = time.time()
+                        self.log_debug("鱼钩黄色消失，开始2秒计时")
+                    elif time.time() - color_zero_start >= 2.0:
+                        self.log_info("鱼钩黄色消失持续2秒，鱼体力耗尽，准备收杆")
+                        if current_key:
+                            self.send_key_up(current_key)
+                        return True
+                else:
+                    # 黄色重新出现，重置计时
+                    if color_zero_start is not None:
+                        self.log_debug("鱼钩黄色重新出现，重置计时")
+                        color_zero_start = None
+
+            # 获取目标区域颜色信息
             target_x, white_xy = self._get_color_xy(control_box, self.COLOR_TARGET, self.COLOR_TOLERANCE)
             white_x = white_xy[0]
+
+            # 如果无法获取目标信息（可能是鱼钩消失期间），则不调整方向键，保持当前按键
             if not target_x or white_x == 0:
-                if current_key:
-                    self.send_key_up(current_key)
-                    current_key = None
-                self.sleep(0.05)
+                self.sleep(0.03)
                 continue
+
+            # 计算目标区域的中心
             target_center = (min(target_x) + max(target_x)) / 2
+
+            # 方向键控制逻辑
             if white_x < target_center - self.ALIGN_THRESHOLD:
                 if current_key != 'd':
                     if current_key:
@@ -157,12 +176,14 @@ class FishingTask(BaseQRSLTask):
                     self.send_key_down('a')
                     current_key = 'a'
             else:
+                # 已对齐，如果当前按键是必要的方向键，则释放
                 if current_key:
                     if (current_key == 'd' and white_x >= target_center) or \
                        (current_key == 'a' and white_x <= target_center):
                         self.send_key_up(current_key)
                         current_key = None
                         self.sleep(0.1)
+
             self.sleep(0.03)
 
     def run(self):
@@ -188,7 +209,7 @@ class FishingTask(BaseQRSLTask):
                     self.sleep(2)
                     continue
                 # 收杆
-                self.sleep(1)
+
                 self.log_info(f"发送收杆按键 [{fish_key}]")
                 self.send_key_safe(fish_key, down_time=0.1)          # 替换为 safe
                 self.sleep(2)

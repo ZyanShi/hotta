@@ -36,11 +36,15 @@ class MoKuaiJinBiTask(BaseQRSLTask):
             '提示信息': '索敌范围',
         }
         self.config_type['搜索模式'] = {'type': "drop_down", 'options': ['十字搜索', '米字搜索']}
-        self.config_type['BOSS选择'] = {'type': "drop_down", 'options': ['罗贝拉格/朱厌', '阿波菲斯']}
+        self.config_type['BOSS选择'] = {
+            'type': "drop_down",
+            'options': ['罗贝拉格/朱厌', '阿波菲斯', '幻蝎']  # 添加了“幻蝎”选项
+        }
         self._source_key = self._get_source_key()
         self.boss_image_map = {
             '罗贝拉格/朱厌': None,
             '阿波菲斯': 'Apophis',
+            # 幻蝎无需图片，直接点击坐标
         }
         self.last_shenlin_time = 0
 
@@ -58,15 +62,25 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         self.sleep(2)
         click_x, click_y = self._get_scaled_coordinates(350, 940)
         self.log_info(f"点击世界BOSS入口，缩放后坐标: ({click_x}, {click_y})")
-        self._click_safe(click_x, click_y, after_sleep=2)           # 替换
+        self._click_safe(click_x, click_y, after_sleep=2)  # 替换
         return True
 
     def _select_boss_by_config(self):
         boss_choice = self.config.get('BOSS选择', '罗贝拉格/朱厌')
+
+        # 处理“幻蝎”：点击固定坐标
+        if boss_choice == '幻蝎':
+            x, y = self._get_scaled_coordinates(1340, 920)  # 原始分辨率下的坐标
+            self.log_info(f"幻蝎: 点击固定坐标 ({x}, {y})")
+            self._click_safe(x, y, after_sleep=1)  # 点击后等待1秒
+            return True
+
+        # 原有逻辑：根据 image_name 进行图片识别点击
         image_name = self.boss_image_map.get(boss_choice)
         if image_name is None:
             self.log_info(f"BOSS选择为 [{boss_choice}]，无需额外操作")
             return True
+
         self.log_info(f"BOSS选择为 [{boss_choice}]，等待图片 [{image_name}]")
         return self._wait_and_click_feature(image_name, timeout=10, after_sleep=1)
 
@@ -74,7 +88,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         box = self.wait_feature(feature_name, time_out=timeout, raise_if_not_found=False)
         if box:
             self.log_info(f"找到并点击 [{feature_name}]")
-            self._click_box_safe(box)                              # 替换
+            self._click_box_safe(box)  # 替换
             if after_sleep > 0:
                 self.sleep(after_sleep)
             return True
@@ -210,8 +224,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         return None
 
     def _cross_search(self):
-        timeout = 60
-        self.log_info(f"启动十字搜索，超时{timeout}秒，宝箱阈值0.6")
+        self.log_info("启动十字搜索，宝箱阈值0.6")
         found_event = threading.Event()
         stop_event = threading.Event()
         chest_box = [None]
@@ -262,6 +275,8 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                     self.send_key_up(key)
                 if after_sleep > 0:
                     self._sleep_with_events(after_sleep, stop_event, found_event)
+            # 移动序列结束，主动停止搜索线程
+            stop_event.set()
             if not found_event.is_set():
                 self.log_debug("十字移动序列执行完毕，未找到宝箱")
 
@@ -269,23 +284,23 @@ class MoKuaiJinBiTask(BaseQRSLTask):
         t2 = threading.Thread(target=mover, daemon=True)
         t1.start()
         t2.start()
-        start_time = time.time()
+
         try:
-            while not found_event.is_set() and time.time() - start_time < timeout:
-                self.sleep(0.1)
+            # 等待移动线程结束（它会设置 stop_event）
+            t2.join()
+            # 等待搜索线程结束
+            t1.join()
         except TaskDisabledException:
             self.log_info("十字搜索被用户手动停止")
             stop_event.set()
             t1.join(timeout=1)
             t2.join(timeout=1)
             raise
-        stop_event.set()
-        t1.join(timeout=1)
-        t2.join(timeout=1)
+
         if found_event.is_set():
             self.log_info("十字搜索成功找到宝箱")
             return chest_box[0]
-        self.log_info("十字搜索超时，未找到宝箱")
+        self.log_info("十字移动序列结束，未找到宝箱")
         return None
 
     def _mi_search(self):
@@ -502,14 +517,16 @@ class MoKuaiJinBiTask(BaseQRSLTask):
                 if locked_chest_type:
                     results = self.find_feature(locked_chest_type, box=full_box, threshold=0.6)
                     if results:
-                        current_chest = results[0] if len(results) == 1 else self._get_closest_box(results, target_chest)
+                        current_chest = results[0] if len(results) == 1 else self._get_closest_box(results,
+                                                                                                   target_chest)
 
                 if current_chest is None:
                     for name in self.CHEST_NAMES:
                         results = self.find_feature(name, box=full_box, threshold=0.6)
                         if results:
                             locked_chest_type = name
-                            current_chest = results[0] if len(results) == 1 else self._get_closest_box(results, target_chest)
+                            current_chest = results[0] if len(results) == 1 else self._get_closest_box(results,
+                                                                                                       target_chest)
                             break
 
                 if current_chest is None:
@@ -618,7 +635,7 @@ class MoKuaiJinBiTask(BaseQRSLTask):
     def _claim_reward(self):
         x, y = self._get_scaled_coordinates(1255, 575)
         self.log_info(f"点击奖励坐标 ({x}, {y})")
-        self._click_safe(x, y, after_sleep=7)                         # 替换
+        self._click_safe(x, y, after_sleep=7)  # 替换
         return True
 
     def run(self):

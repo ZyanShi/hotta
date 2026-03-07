@@ -194,13 +194,13 @@ class FishingTask(BaseQRSLTask):
             self.log_info(f"配置参数: 钓鱼按键={fish_key}, 循环次数={max_loops}")
             completed = 0
             for i in range(max_loops):
-                self.log_info(f"--- 第 {i+1}/{max_loops} 次循环开始 ---")
+                self.log_info(f"--- 第 {i + 1}/{max_loops} 次循环开始 ---")
                 if not self._check_fishing_interface():
                     self.sleep(2)
                     continue
                 # 抛竿
                 self.log_info(f"发送抛竿按键 [{fish_key}]")
-                self.send_key_safe(fish_key, down_time=0.1)          # 替换为 safe
+                self.send_key_safe(fish_key, down_time=0.1)
                 self.sleep(2)
                 if not self._wait_fish_hook():
                     self.sleep(2)
@@ -209,19 +209,37 @@ class FishingTask(BaseQRSLTask):
                     self.sleep(2)
                     continue
                 # 收杆
-
                 self.log_info(f"发送收杆按键 [{fish_key}]")
-                self.send_key_safe(fish_key, down_time=0.1)          # 替换为 safe
+                self.send_key_safe(fish_key, down_time=0.1)
                 self.sleep(2)
-                # 点击屏幕中心（使用 safe 点击）
-                frame = self.frame
-                if frame is not None:
-                    h, w = frame.shape[:2]
-                    self._click_safe(w // 2, h // 2)                # 替换 click_relative
-                self.sleep(1)
+
+                # ---------- 修改开始：拾取后重试检测界面 ----------
+                max_attempts = 3
+                attempt = 0
+                pick_success = False
+                while attempt < max_attempts:
+                    # 点击屏幕中心
+                    frame = self.frame
+                    if frame is not None:
+                        h, w = frame.shape[:2]
+                        self._click_safe(w // 2, h // 2)
+                    self.sleep(1)  # 等待拾取动画
+                    if self._check_fishing_interface():
+                        self.log_info("拾取成功，钓鱼界面已恢复")
+                        pick_success = True
+                        break
+                    else:
+                        attempt += 1
+                        self.log_info(f"拾取后未检测到钓鱼界面，尝试第 {attempt} 次重试")
+                if not pick_success:
+                    self.log_error("拾取失败，多次点击后仍未检测到钓鱼界面，跳过本次循环")
+                    continue  # 不增加 completed，直接进入下一次循环
+                # ---------- 修改结束 ----------
+
                 completed += 1
-                self.log_info(f"第 {i+1} 次钓鱼完成")
+                self.log_info(f"第 {i + 1} 次钓鱼完成")
                 self.sleep(1)
+
             self.log_info(f"===== 钓鱼任务结束，共完成 {completed}/{max_loops} 次 =====", notify=True)
         except TaskDisabledException:
             self.log_info("钓鱼任务被用户手动停止")
